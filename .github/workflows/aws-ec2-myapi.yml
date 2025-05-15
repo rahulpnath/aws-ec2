@@ -41,8 +41,11 @@ jobs:
         echo "$EC2_SSH_KEY" > ssh_key.pem
         chmod 600 ssh_key.pem
         
-        # Create the app directory if it doesn't exist
-        ssh -o StrictHostKeyChecking=no -i ssh_key.pem $EC2_USERNAME 'mkdir -p ~/myapi'
+        # Stop the service and clear the directory
+        ssh -o StrictHostKeyChecking=no -i ssh_key.pem $EC2_USERNAME '
+         sudo systemctl stop myapi || true
+         rm -rf ~/myapi/*
+        '
         
         # Copy the published files
         scp -o StrictHostKeyChecking=no -i ssh_key.pem -r ./publish/* $EC2_USERNAME:~/myapi/
@@ -52,9 +55,9 @@ jobs:
         
         # Setup and start the service
         ssh -o StrictHostKeyChecking=no -i ssh_key.pem $EC2_USERNAME '
-          sudo cp ~/myapi/myapi.service /etc/systemd/system/
-          sudo chmod +x ~/myapi/MyApi
-          sudo systemctl daemon-reload
-          sudo systemctl enable myapi
-          sudo systemctl restart myapi
+         sudo cp ~/myapi/myapi.service /etc/systemd/system/
+         sudo chmod +x ~/myapi/MyApi
+         sudo systemctl daemon-reload
+         sudo systemctl enable myapi
+         sudo systemctl restart myapi
         '
