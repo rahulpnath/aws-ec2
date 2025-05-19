@@ -35,7 +35,7 @@ jobs:
       - name: Setup SSH access to EC2
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "ec2-3-106-253-51.ap-southeast-2.compute.amazonaws.com" >> ~/.ssh/known_hosts
 
           echo "$EC2_SSH_KEY" > ssh_key.pem
           chmod 600 ssh_key.pem
