@@ -1,4 +1,4 @@
-name: Build and Deploy MyApi
+name: Build and Deploy MyApi Applications
 
 on:
   push:
