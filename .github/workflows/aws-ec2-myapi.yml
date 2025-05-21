@@ -45,6 +45,12 @@ jobs:
           echo "$EC2_SSH_KEY" > ssh_key.pem
           chmod 600 ssh_key.pem
 
+          # Stop the service and clear the directory
+          ssh -i ssh_key.pem $EC2_USERNAME '
+          sudo systemctl stop myapi || true
+          rm -rf ~/myapi/*
+          '
+
           # Copy the published files
           scp -i ssh_key.pem -r ./publish/* $EC2_USERNAME:~/myapi/
 
