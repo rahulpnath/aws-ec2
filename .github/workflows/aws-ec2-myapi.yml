@@ -32,33 +32,69 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Copy files to EC2
+      - name: Copy files to EC2 instance 1
         working-directory: src
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          EC2_HOST1: ${{ secrets.EC2_HOST1 }}
         run: |
 
           mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.EC2_HOST1 }}" >> ~/.ssh/known_hosts
 
           echo "$EC2_SSH_KEY" > ssh_key.pem
           chmod 600 ssh_key.pem
 
           # Stop the service and clear the directory
-          ssh -i ssh_key.pem $EC2_USERNAME '
+          ssh -i ssh_key.pem ${EC2_USERNAME}@${EC2_HOST1} '
           sudo systemctl stop myapi || true
           rm -rf ~/myapi/*
           '
 
           # Copy the published files
-          scp -i ssh_key.pem -r ./publish/* $EC2_USERNAME:~/myapi/
+          scp -i ssh_key.pem -r ./publish/* ${EC2_USERNAME}@${EC2_HOST1}:~/myapi/
 
           # Copy the service file
-          scp -i ssh_key.pem ./MyApi/myapi.service $EC2_USERNAME:~/myapi/
+          scp -i ssh_key.pem ./MyApi/myapi.service ${EC2_USERNAME}@${EC2_HOST1}:~/myapi/
 
           # Setup and start the service
-          ssh -i ssh_key.pem $EC2_USERNAME '
+          ssh -i ssh_key.pem ${EC2_USERNAME}@${EC2_HOST1} '
+           sudo cp ~/myapi/myapi.service /etc/systemd/system/
+           sudo chmod +x ~/myapi/MyApi
+           sudo systemctl daemon-reload
+           sudo systemctl enable myapi
+           sudo systemctl restart myapi
+          '
+
+      - name: Copy files to EC2 instance 2
+        working-directory: src
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          EC2_HOST2: ${{ secrets.EC2_HOST2 }}
+        run: |
+
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.EC2_HOST2 }}" >> ~/.ssh/known_hosts
+
+          echo "$EC2_SSH_KEY" > ssh_key.pem
+          chmod 600 ssh_key.pem
+
+          # Stop the service and clear the directory
+          ssh -i ssh_key.pem ${EC2_USERNAME}@${EC2_HOST2} '
+          sudo systemctl stop myapi || true
+          rm -rf ~/myapi/*
+          '
+
+          # Copy the published files
+          scp -i ssh_key.pem -r ./publish/* ${EC2_USERNAME}@${EC2_HOST2}:~/myapi/
+
+          # Copy the service file
+          scp -i ssh_key.pem ./MyApi/myapi.service ${EC2_USERNAME}@${EC2_HOST2}:~/myapi/
+
+          # Setup and start the service
+          ssh -i ssh_key.pem ${EC2_USERNAME}@${EC2_HOST2} '
            sudo cp ~/myapi/myapi.service /etc/systemd/system/
            sudo chmod +x ~/myapi/MyApi
            sudo systemctl daemon-reload

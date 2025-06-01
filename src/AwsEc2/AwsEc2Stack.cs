@@ -1,5 +1,7 @@
 using Amazon.CDK;
 using Amazon.CDK.AWS.EC2;
+using Amazon.CDK.AWS.ElasticLoadBalancingV2;
+using Amazon.CDK.AWS.ElasticLoadBalancingV2.Targets;
 using Amazon.CDK.AWS.IAM;
 using Constructs;
 
@@ -37,20 +39,68 @@ public class AwsEc2Stack : Stack
         role.AddManagedPolicy(ManagedPolicy.FromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
 
         // Create EC2 Instance
-        var instance = new Instance_(this, "WebApiInstance", new InstanceProps
+        var machineImage = MachineImage.LatestAmazonLinux2023();
+        var keyPair = KeyPair.FromKeyPairName(this, "key-0a498c763ef8ab954", "my-key-pair");
+        var instance1 = new Instance_(this, "WebApiInstance", new InstanceProps
         {
             InstanceType = InstanceType.Of(InstanceClass.BURSTABLE3, InstanceSize.MICRO),
-            MachineImage = MachineImage.LatestAmazonLinux2023(),
+            MachineImage = machineImage,
             Vpc = vpc,
             Role = role,
             SecurityGroup = securityGroup,
-            KeyPair = KeyPair.FromKeyPairName(this, "key-0a498c763ef8ab954", "my-key-pair"),
+            KeyPair = keyPair,
+        });
+        
+        var instance2 = new Instance_(this, "WebApiInstance2", new InstanceProps
+        {
+            InstanceType = InstanceType.Of(InstanceClass.BURSTABLE3, InstanceSize.MICRO),
+            MachineImage = machineImage,
+            Vpc = vpc,
+            Role = role,
+            SecurityGroup = securityGroup,
+            KeyPair = keyPair,
+        });
+        
+        var lb = new ApplicationLoadBalancer(this, "MyALB", new ApplicationLoadBalancerProps {
+            Vpc = vpc,
+            InternetFacing = true,
+            SecurityGroup = securityGroup
         });
 
-        new CfnOutput(this, "InstancePublicIp", new CfnOutputProps
+        var listener = lb.AddListener("Listener", new BaseApplicationListenerProps {
+            Port = 80,
+            Open = true
+        });
+        
+        var targetGroup = new ApplicationTargetGroup(this, "WebApiTargetGroup", new ApplicationTargetGroupProps
         {
-            Value = instance.InstancePublicIp,
-            Description = "Public IP of the EC2 instance"
+            Vpc = vpc,
+            Port = 5000,
+            Protocol = ApplicationProtocol.HTTP,
+            TargetType = TargetType.INSTANCE,
+            HealthCheck = new HealthCheck
+            {
+                Path = "/weatherforecast",
+                Port = "5000"
+            }
+        });
+
+// Add EC2s to target group
+        targetGroup.AddTarget(new InstanceTarget(instance1));
+        targetGroup.AddTarget(new InstanceTarget(instance2));
+
+// Attach target group to listener
+        listener.AddTargetGroups("AddWebApiTargetGroup", new AddApplicationTargetGroupsProps
+        {
+            TargetGroups = new[] { targetGroup }
+        });
+
+        
+
+        new CfnOutput(this, "LoadBalancerDNS", new CfnOutputProps
+        {
+            Value = lb.LoadBalancerDnsName,
+            Description = "DNS of the load balancer"
         });
     }
 }
