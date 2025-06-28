@@ -29,8 +29,8 @@ jobs:
       - name: Zip deployment artifact
         working-directory: src
         run: |
-          cp MyApi/appspec.yml ./publish/
-          cp -r MyApi/scripts ./publish/
+          cp ./MyApi/appspec.yml ./publish/
+          cp -r ./MyApi/scripts ./publish/
           cd publish
           zip -r ../../myapi-deploy.zip .
 
