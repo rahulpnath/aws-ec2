@@ -26,79 +26,32 @@ jobs:
         working-directory: src
         run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --output ./publish --self-contained true -r linux-x64
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Copy files to EC2 instance 1
+      - name: Zip deployment artifact
         working-directory: src
-        env:
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-          EC2_HOST1: ${{ secrets.EC2_HOST1 }}
         run: |
+          cp MyApi/appspec.yml ./publish/
+          cp -r MyApi/scripts ./publish/
+          cd publish
+          zip -r ../../myapi-deploy.zip .
 
-          mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ secrets.EC2_HOST1 }}" >> ~/.ssh/known_hosts
-
-          echo "$EC2_SSH_KEY" > ssh_key.pem
-          chmod 600 ssh_key.pem
-
-          # Stop the service and clear the directory
-          ssh -i ssh_key.pem ${EC2_USERNAME}@${EC2_HOST1} '
-          sudo systemctl stop myapi || true
-          rm -rf ~/myapi/*
-          '
-
-          # Copy the published files
-          scp -i ssh_key.pem -r ./publish/* ${EC2_USERNAME}@${EC2_HOST1}:~/myapi/
-
-          # Copy the service file
-          scp -i ssh_key.pem ./MyApi/myapi.service ${EC2_USERNAME}@${EC2_HOST1}:~/myapi/
-
-          # Setup and start the service
-          ssh -i ssh_key.pem ${EC2_USERNAME}@${EC2_HOST1} '
-           sudo cp ~/myapi/myapi.service /etc/systemd/system/
-           sudo chmod +x ~/myapi/MyApi
-           sudo systemctl daemon-reload
-           sudo systemctl enable myapi
-           sudo systemctl restart myapi
-          '
-
-      - name: Copy files to EC2 instance 2
-        working-directory: src
-        env:
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-          EC2_HOST2: ${{ secrets.EC2_HOST2 }}
+      - name: Upload artifact to S3
         run: |
+          aws s3 cp myapi-deploy.zip s3://$CODEDEPLOY_BUCKET/myapi-deploy.zip
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          CODEDEPLOY_BUCKET: ${{ secrets.CODEDEPLOY_BUCKET }}
 
-          mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ secrets.EC2_HOST2 }}" >> ~/.ssh/known_hosts
-
-          echo "$EC2_SSH_KEY" > ssh_key.pem
-          chmod 600 ssh_key.pem
-
-          # Stop the service and clear the directory
-          ssh -i ssh_key.pem ${EC2_USERNAME}@${EC2_HOST2} '
-          sudo systemctl stop myapi || true
-          rm -rf ~/myapi/*
-          '
-
-          # Copy the published files
-          scp -i ssh_key.pem -r ./publish/* ${EC2_USERNAME}@${EC2_HOST2}:~/myapi/
-
-          # Copy the service file
-          scp -i ssh_key.pem ./MyApi/myapi.service ${EC2_USERNAME}@${EC2_HOST2}:~/myapi/
-
-          # Setup and start the service
-          ssh -i ssh_key.pem ${EC2_USERNAME}@${EC2_HOST2} '
-           sudo cp ~/myapi/myapi.service /etc/systemd/system/
-           sudo chmod +x ~/myapi/MyApi
-           sudo systemctl daemon-reload
-           sudo systemctl enable myapi
-           sudo systemctl restart myapi
-          '
+      - name: Trigger CodeDeploy deployment
+        run: |
+          aws deploy create-deployment \
+            --application-name ${{ secrets.CODEDEPLOY_APP_NAME }} \
+            --deployment-group-name ${{ secrets.CODEDEPLOY_DEPLOYMENT_GROUP }} \
+            --s3-location bucket=$CODEDEPLOY_BUCKET,bundleType=zip,key=myapi-deploy.zip \
+            --file-exists-behavior OVERWRITE
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          CODEDEPLOY_BUCKET: ${{ secrets.CODEDEPLOY_BUCKET }}

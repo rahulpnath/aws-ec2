@@ -3,6 +3,7 @@ using Amazon.CDK.AWS.EC2;
 using Amazon.CDK.AWS.ElasticLoadBalancingV2;
 using Amazon.CDK.AWS.ElasticLoadBalancingV2.Targets;
 using Amazon.CDK.AWS.IAM;
+using Amazon.CDK.AWS.S3;
 using Constructs;
 
 namespace AwsEc2;
@@ -95,12 +96,22 @@ public class AwsEc2Stack : Stack
             TargetGroups = new[] { targetGroup }
         });
 
-        
+        // S3 bucket for CodeDeploy artifacts
+        var deployBucket = new Bucket(this, "CodeDeployArtifactsBucket", new BucketProps {
+            Versioned = true,
+            RemovalPolicy = RemovalPolicy.DESTROY,
+            AutoDeleteObjects = true
+        });
 
         new CfnOutput(this, "LoadBalancerDNS", new CfnOutputProps
         {
             Value = lb.LoadBalancerDnsName,
             Description = "DNS of the load balancer"
+        });
+
+        new CfnOutput(this, "CodeDeployArtifactsBucketName", new CfnOutputProps {
+            Value = deployBucket.BucketName,
+            Description = "S3 bucket for CodeDeploy artifacts"
         });
     }
 }
