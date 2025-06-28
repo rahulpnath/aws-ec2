@@ -45,10 +45,10 @@ jobs:
 
       - name: Trigger CodeDeploy deployment
         run: |
-          aws deploy create-deployment \
-            --application-name ${{ secrets.CODEDEPLOY_APP_NAME }} \
-            --deployment-group-name ${{ secrets.CODEDEPLOY_DEPLOYMENT_GROUP }} \
-            --s3-location bucket=$CODEDEPLOY_BUCKET,bundleType=zip,key=myapi-deploy.zip \
+          aws deploy create-deployment `
+            --application-name ${{ secrets.CODEDEPLOY_APP_NAME }} `
+            --deployment-group-name ${{ secrets.CODEDEPLOY_DEPLOYMENT_GROUP }} `
+            --s3-location bucket=$CODEDEPLOY_BUCKET,bundleType=zip,key=myapi-deploy.zip `
             --file-exists-behavior OVERWRITE
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
