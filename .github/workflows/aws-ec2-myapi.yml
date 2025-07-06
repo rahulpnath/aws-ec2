@@ -30,6 +30,7 @@ jobs:
         working-directory: src
         run: |
           cp ./MyApi/appspec.yml ./publish/
+          cp ./MyApi/myapi.service ./publish/
           cp -r ./MyApi/scripts ./publish/
           cd publish
           zip -r ../../myapi-deploy.zip .
