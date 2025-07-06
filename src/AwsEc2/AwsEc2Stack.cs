@@ -98,6 +98,7 @@ public class AwsEc2Stack : Stack
 
         // S3 bucket for CodeDeploy artifacts
         var deployBucket = new Bucket(this, "CodeDeployArtifactsBucket", new BucketProps {
+            BucketName = "my-code-deploy-artifacts-bucket",
             Versioned = true,
             RemovalPolicy = RemovalPolicy.DESTROY,
             AutoDeleteObjects = true

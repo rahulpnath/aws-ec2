@@ -3,6 +3,8 @@ os: linux
 files:
   - source: /
     destination: /home/ec2-user/myapi
+  - source: myapi.service
+    destination: /etc/systemd/system
 hooks:
   BeforeInstall:
     - location: scripts/stop_service.sh
