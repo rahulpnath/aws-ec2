@@ -1,4 +1,4 @@
 #!/bin/bash
-sudo systemctl daemon-reload
-sudo systemctl enable myapi
-sudo systemctl restart myapi
+systemctl daemon-reload
+systemctl enable myapi
+systemctl restart myapi

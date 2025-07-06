@@ -1,2 +1,3 @@
 #!/bin/bash
-sudo systemctl stop myapi || true
+systemctl stop myapi || true
+rm -rf ~/myapi/*
