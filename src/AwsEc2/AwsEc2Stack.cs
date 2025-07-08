@@ -3,6 +3,7 @@ using Amazon.CDK.AWS.EC2;
 using Amazon.CDK.AWS.ElasticLoadBalancingV2;
 using Amazon.CDK.AWS.ElasticLoadBalancingV2.Targets;
 using Amazon.CDK.AWS.IAM;
+using Amazon.CDK.AWS.S3;
 using Constructs;
 
 namespace AwsEc2;
@@ -11,6 +12,14 @@ public class AwsEc2Stack : Stack
 {
     internal AwsEc2Stack(Construct scope, string id, IStackProps props = null) : base(scope, id, props)
     {
+        // S3 bucket for CodeDeploy artifacts
+        var deployBucket = new Bucket(this, "CodeDeployArtifactsBucket", new BucketProps {
+            BucketName = "my-code-deploy-artifacts-bucket",
+            Versioned = true,
+            RemovalPolicy = RemovalPolicy.DESTROY,
+            AutoDeleteObjects = true
+        });
+        
         // Lookup the default VPC
         var vpc = Vpc.FromLookup(this, "DefaultVpc", new VpcLookupOptions
         {
@@ -37,6 +46,7 @@ public class AwsEc2Stack : Stack
         });
 
         role.AddManagedPolicy(ManagedPolicy.FromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
+        deployBucket.GrantRead(role);
 
         // Create EC2 Instance
         var machineImage = MachineImage.LatestAmazonLinux2023();
@@ -101,6 +111,11 @@ public class AwsEc2Stack : Stack
         {
             Value = lb.LoadBalancerDnsName,
             Description = "DNS of the load balancer"
+        });
+
+        new CfnOutput(this, "CodeDeployArtifactsBucketName", new CfnOutputProps {
+            Value = deployBucket.BucketName,
+            Description = "S3 bucket for CodeDeploy artifacts"
         });
     }
 }
