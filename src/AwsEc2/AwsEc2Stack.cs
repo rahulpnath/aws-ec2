@@ -1,7 +1,7 @@
 using Amazon.CDK;
+using Amazon.CDK.AWS.AutoScaling;
 using Amazon.CDK.AWS.EC2;
 using Amazon.CDK.AWS.ElasticLoadBalancingV2;
-using Amazon.CDK.AWS.ElasticLoadBalancingV2.Targets;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.S3;
 using Constructs;
@@ -48,29 +48,19 @@ public class AwsEc2Stack : Stack
         role.AddManagedPolicy(ManagedPolicy.FromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
         deployBucket.GrantRead(role);
 
-        // Create EC2 Instance
+        // Create Launch Template
         var machineImage = MachineImage.LatestAmazonLinux2023();
         var keyPair = KeyPair.FromKeyPairName(this, "key-0a498c763ef8ab954", "my-key-pair");
-        var instance1 = new Instance_(this, "WebApiInstance", new InstanceProps
+        
+        var launchTemplate = new LaunchTemplate(this, "WebApiLaunchTemplate", new LaunchTemplateProps
         {
             InstanceType = InstanceType.Of(InstanceClass.BURSTABLE3, InstanceSize.MICRO),
             MachineImage = machineImage,
-            Vpc = vpc,
-            Role = role,
             SecurityGroup = securityGroup,
             KeyPair = keyPair,
+            Role = role
         });
-        
-        var instance2 = new Instance_(this, "WebApiInstance2", new InstanceProps
-        {
-            InstanceType = InstanceType.Of(InstanceClass.BURSTABLE3, InstanceSize.MICRO),
-            MachineImage = machineImage,
-            Vpc = vpc,
-            Role = role,
-            SecurityGroup = securityGroup,
-            KeyPair = keyPair,
-        });
-        
+
         var lb = new ApplicationLoadBalancer(this, "MyALB", new ApplicationLoadBalancerProps {
             Vpc = vpc,
             InternetFacing = true,
@@ -88,21 +78,30 @@ public class AwsEc2Stack : Stack
             Port = 5000,
             Protocol = ApplicationProtocol.HTTP,
             TargetType = TargetType.INSTANCE,
-            HealthCheck = new HealthCheck
+            HealthCheck = new Amazon.CDK.AWS.ElasticLoadBalancingV2.HealthCheck
             {
                 Path = "/weatherforecast",
                 Port = "5000"
             }
         });
 
-// Add EC2s to target group
-        targetGroup.AddTarget(new InstanceTarget(instance1));
-        targetGroup.AddTarget(new InstanceTarget(instance2));
+        // Create Auto Scaling Group
+        var autoScalingGroup = new AutoScalingGroup(this, "WebApiAutoScalingGroup", new AutoScalingGroupProps
+        {
+            Vpc = vpc,
+            LaunchTemplate = launchTemplate,
+            MinCapacity = 1,
+            MaxCapacity = 4,
+            DesiredCapacity = 2
+        });
+
+        // Attach Auto Scaling Group to Target Group
+        autoScalingGroup.AttachToApplicationTargetGroup(targetGroup);
 
 // Attach target group to listener
         listener.AddTargetGroups("AddWebApiTargetGroup", new AddApplicationTargetGroupsProps
         {
-            TargetGroups = new[] { targetGroup }
+            TargetGroups = new IApplicationTargetGroup[] { targetGroup }
         });
 
         
