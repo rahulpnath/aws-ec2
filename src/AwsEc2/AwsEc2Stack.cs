@@ -46,6 +46,8 @@ public class AwsEc2Stack : Stack
         });
 
         role.AddManagedPolicy(ManagedPolicy.FromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
+        role.AddManagedPolicy(ManagedPolicy.FromAwsManagedPolicyName("AmazonEC2ReadOnlyAccess"));
+        role.AddManagedPolicy(ManagedPolicy.FromAwsManagedPolicyName("CloudWatchAgentServerPolicy"));
         deployBucket.GrantRead(role);
 
         // Create Launch Template
