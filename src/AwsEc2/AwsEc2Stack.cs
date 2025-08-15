@@ -54,13 +54,84 @@ public class AwsEc2Stack : Stack
         var machineImage = MachineImage.LatestAmazonLinux2023();
         var keyPair = KeyPair.FromKeyPairName(this, "key-0a498c763ef8ab954", "my-key-pair");
         
+        // UserData script to install and configure CloudWatch Agent
+        // CloudWatch Agent configuration as a readable JSON string
+        var cloudWatchConfig = """
+        {
+            "agent": {
+                "metrics_collection_interval": 60
+            },
+            "metrics": {
+                "namespace": "CWAgent",
+                "append_dimensions": {
+                    "InstanceId": "${aws:InstanceId}"
+                },
+                "metrics_collected": {
+                    "mem": {
+                        "measurement": [
+                            "used_percent",
+                            "available_percent"
+                        ]
+                    },
+                    "cpu": {
+                        "measurement": [
+                            "usage_active"
+                        ]
+                    },
+                    "disk": {
+                        "measurement": [
+                            "used_percent",
+                            "free"
+                        ]
+                    },
+                    "processes": {
+                        "measurement": [
+                            "running",
+                            "total_threads"
+                        ]
+                    }
+                }
+            }
+        }
+        """;
+        
+        var userData = UserData.ForLinux();
+        userData.AddCommands(
+            "#!/bin/bash",
+            "set -xe",
+            "yum update -y",
+            "yum install -y amazon-cloudwatch-agent",
+            
+            // Ensure the directory exists
+            "mkdir -p /opt/aws/amazon-cloudwatch-agent/bin/"
+        );
+        
+        // Create CloudWatch Agent configuration file using heredoc
+        userData.AddCommands("cat << 'EOF' > /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent.json");
+        userData.AddCommands(cloudWatchConfig);
+        userData.AddCommands("EOF");
+        
+        userData.AddCommands(
+            // Verify the file was created
+            "ls -la /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent.json",
+            "cat /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent.json",
+            
+            // Start CloudWatch Agent
+            "/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent.json",
+            
+            // Enable CloudWatch Agent to start on boot
+            "systemctl enable amazon-cloudwatch-agent",
+            "systemctl start amazon-cloudwatch-agent"
+        );
+        
         var launchTemplate = new LaunchTemplate(this, "WebApiLaunchTemplate", new LaunchTemplateProps
         {
             InstanceType = InstanceType.Of(InstanceClass.BURSTABLE3, InstanceSize.MICRO),
             MachineImage = machineImage,
             SecurityGroup = securityGroup,
             KeyPair = keyPair,
-            Role = role
+            Role = role,
+            UserData = userData
         });
 
         var lb = new ApplicationLoadBalancer(this, "MyALB", new ApplicationLoadBalancerProps {
@@ -105,8 +176,6 @@ public class AwsEc2Stack : Stack
         {
             TargetGroups = new IApplicationTargetGroup[] { targetGroup }
         });
-
-        
 
         new CfnOutput(this, "LoadBalancerDNS", new CfnOutputProps
         {
